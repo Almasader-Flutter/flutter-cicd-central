@@ -90,13 +90,17 @@ jobs:
 
       - name: 🔏 Sync Certificates via Match
         run: |
+          cat > fastlane/Matchfile << EOF
+          git_url("${{ secrets.MATCH_REPO_URL }}")
+          git_basic_authorization("${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}")
+          storage_mode("git")
+          type("appstore")
+          EOF
           bundle exec fastlane match appstore \
             --readonly \
             --app_identifier "${{ inputs.bundle-id }}"
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_REPO_URL }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
 
