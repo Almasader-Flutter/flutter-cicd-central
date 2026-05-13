@@ -106,7 +106,7 @@ jobs:
             bundle exec fastlane match appstore \
               --readonly false \
               --app_identifier "${{ inputs.bundle-id }}" \
-              --api_key_path "~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
+              --api_key_path "$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
           else
             bundle exec fastlane match appstore \
               --readonly \
