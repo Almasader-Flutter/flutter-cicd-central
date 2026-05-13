@@ -51,6 +51,8 @@ platform :ios do
       readonly:       true,
       app_identifier: bundle_id,
       api_key:        api_key,
+      git_url:              ENV["MATCH_REPO_URL"],
+      git_basic_authorization: ENV["MATCH_GIT_BASIC_AUTHORIZATION"],
     )
 
     build_app(
