@@ -92,11 +92,11 @@ jobs:
         run: |
           bundle exec fastlane match appstore \
             --readonly \
-            --app_identifier "${{ inputs.bundle-id }}"
+            --app_identifier "${{ inputs.bundle-id }}" \
+            --git_url "${{ secrets.MATCH_REPO_URL }}" \
+            --git_basic_authorization "${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}"
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_REPO_URL }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
 
