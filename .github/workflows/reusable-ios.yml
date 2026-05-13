@@ -101,12 +101,15 @@ jobs:
           type("appstore")
           EOF
           
+          # Create a proper JSON API Key file for Fastlane
+          python3 -c "import json, os; print(json.dumps({'key_id': '${{ secrets.ASC_KEY_ID }}', 'issuer_id': '${{ secrets.ASC_ISSUER_ID }}', 'key': os.environ['ASC_PRIVATE_KEY'], 'in_house': False}))" > $HOME/api_key.json
+
           if [ "${{ inputs.readonly }}" = "false" ]; then
             echo "Running match in READ-WRITE mode to create missing certificates..."
             bundle exec fastlane match appstore \
               --readonly false \
               --app_identifier "${{ inputs.bundle-id }}" \
-              --api_key_path "$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
+              --api_key_path "$HOME/api_key.json"
           else
             bundle exec fastlane match appstore \
               --readonly \
@@ -114,6 +117,7 @@ jobs:
           fi
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
 
