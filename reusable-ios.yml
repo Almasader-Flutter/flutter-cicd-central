@@ -1,0 +1,138 @@
+name: Reusable iOS Deploy
+
+on:
+  workflow_call:
+    inputs:
+      flutter-version:
+        description: "Flutter version to use"
+        type: string
+        default: "3.x"
+      bundle-id:
+        description: "iOS bundle identifier e.g. com.company.app"
+        type: string
+        required: true
+      track:
+        description: "Release track: testflight | production"
+        type: string
+        default: "testflight"
+      build-number:
+        description: "Build number (leave empty for auto)"
+        type: string
+        default: ""
+
+    secrets:
+      ASC_KEY_ID:
+        required: true
+      ASC_ISSUER_ID:
+        required: true
+      ASC_PRIVATE_KEY:
+        required: true
+      MATCH_PASSWORD:
+        required: true
+      MATCH_GIT_BASIC_AUTHORIZATION:
+        required: true
+      MATCH_REPO_URL:
+        required: true
+
+jobs:
+  deploy-ios:
+    name: 🍎 Build & Deploy iOS
+    runs-on: macos-latest
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ inputs.flutter-version }}
+          channel: "stable"
+          cache: true
+
+      - name: 💎 Setup Ruby & Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: 🔢 Set Build Number
+        run: |
+          if [ -z "${{ inputs.build-number }}" ]; then
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          else
+            echo "BUILD_NUMBER=${{ inputs.build-number }}" >> $GITHUB_ENV
+          fi
+
+      - name: 📦 Flutter pub get
+        run: flutter pub get
+
+      - name: 🍎 Install Pods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: 🔐 Setup App Store Connect API Key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.ASC_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+
+      - name: 🔏 Sync Certificates via Match
+        run: |
+          bundle exec fastlane match appstore \
+            --readonly \
+            --app_identifier "${{ inputs.bundle-id }}"
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_REPO_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+      - name: 🏗️ Build Flutter iOS
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --build-number=${{ env.BUILD_NUMBER }}
+
+      - name: 📦 Build & Sign IPA
+        run: |
+          bundle exec fastlane run build_app \
+            workspace:"ios/Runner.xcworkspace" \
+            scheme:"Runner" \
+            configuration:"Release" \
+            export_method:"app-store" \
+            output_directory:"build/ios" \
+            output_name:"Runner.ipa"
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+
+      - name: 🚀 Upload to TestFlight
+        if: ${{ inputs.track == 'testflight' }}
+        run: |
+          bundle exec fastlane run upload_to_testflight \
+            ipa:"build/ios/Runner.ipa" \
+            skip_waiting_for_build_processing:true \
+            api_key_path:"~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+      - name: 🚀 Submit to App Store
+        if: ${{ inputs.track == 'production' }}
+        run: |
+          bundle exec fastlane run deliver \
+            ipa:"build/ios/Runner.ipa" \
+            submit_for_review:false \
+            skip_metadata:true \
+            skip_screenshots:true \
+            force:true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+
+      - name: ✅ Done
+        run: echo "🎉 iOS build ${{ env.BUILD_NUMBER }} uploaded to ${{ inputs.track }}"

@@ -1,0 +1,68 @@
+name: 🚀 Deploy to Stores
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build and deploy"
+        required: true
+        type: choice
+        options:
+          - android
+          - ios
+          - both
+      track:
+        description: "Release track"
+        required: true
+        type: choice
+        options:
+          - internal      # Google Play Internal / TestFlight
+          - beta          # Google Play Beta / TestFlight
+          - production    # Live Store
+        default: internal
+      build-number:
+        description: "Build number (leave empty for auto)"
+        required: false
+        type: string
+        default: ""
+
+# ──────────────────────────────────────────────
+# CHANGE THESE TWO VALUES ONLY ↓
+# ──────────────────────────────────────────────
+env:
+  PACKAGE_NAME: "com.yourcompany.yourapp"   # ← Android package name
+  BUNDLE_ID: "com.yourcompany.yourapp"      # ← iOS bundle identifier
+# ──────────────────────────────────────────────
+
+jobs:
+
+  # ─── ANDROID ───────────────────────────────
+  android:
+    if: ${{ github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both' }}
+    uses: YOUR_ORG/flutter-cicd-central/.github/workflows/reusable-android.yml@main
+    with:
+      package-name: ${{ env.PACKAGE_NAME }}
+      track: ${{ github.event.inputs.track == 'beta' && 'beta' || github.event.inputs.track == 'production' && 'production' || 'internal' }}
+      build-number: ${{ github.event.inputs.build-number }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      GOOGLE_PLAY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
+
+  # ─── iOS ───────────────────────────────────
+  ios:
+    if: ${{ github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' }}
+    uses: YOUR_ORG/flutter-cicd-central/.github/workflows/reusable-ios.yml@main
+    with:
+      bundle-id: ${{ env.BUNDLE_ID }}
+      track: ${{ github.event.inputs.track == 'production' && 'production' || 'testflight' }}
+      build-number: ${{ github.event.inputs.build-number }}
+    secrets:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      MATCH_REPO_URL: ${{ secrets.MATCH_REPO_URL }}
